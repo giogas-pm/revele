@@ -203,8 +203,13 @@
     <h2>Chame a galera 🎉</h2>
     <p class="sub">Convide todo mundo que vai palpitar. Quanto mais gente, mais divertido.</p>
     <a class="btn btn-primary" style="width:100%;display:block;text-align:center;text-decoration:none" href="#" onclick="return shareWhatsApp()">📲 Convidar pelo WhatsApp</a>
-    <p class="sub" style="text-align:center;margin:14px 0 6px;font-size:12.5px">ou copie o link</p>
+    <p class="sub" style="text-align:center;margin:14px 0 6px;font-size:12.5px">ou copie o link de convite (sem poderes de organizador)</p>
     <div class="share-link"><input id="shareUrl" readonly /><button class="btn btn-ghost btn-sm" onclick="copyShare()">Copiar</button></div>
+    <div style="background:#fdeef4;border:1px solid var(--line);border-radius:14px;padding:14px;margin-top:16px">
+      <p class="sub" style="margin:0 0 8px;font-weight:600;color:var(--ink)">🔑 Seu link de organizador — só seu, não compartilhe</p>
+      <p class="sub" style="margin:0 0 8px;font-size:12.5px">É com ele que você guarda o resultado secreto e revela na festa. Guardado neste navegador — mas anote como backup.</p>
+      <div class="share-link"><input id="adminUrl" readonly /><button class="btn btn-ghost btn-sm" onclick="copyAdmin()">Copiar</button></div>
+    </div>
     <button class="btn btn-ghost" style="width:100%;margin-top:16px" onclick="closeModal('mShare')">Ver meu bolão</button>
   </div>
 </div>
@@ -222,7 +227,8 @@ async function sb(path,opts){opts=opts||{};const r=await fetch(SB_URL+'/rest/v1/
 function rowToBolao(b,palpites){return {id:b.id,slug:b.slug,titulo:b.titulo,dataPrevista:b.data_prevista,by:b.created_by,resultado:b.resultado,unlocked:b.unlocked,
   palpites:(palpites||[]).map(p=>({id:p.id,n:p.nome,sexo:p.sexo,nomeSugerido:p.nome_sugerido,data:p.data_palpite,peso:p.peso_kg}))}}
 async function apiCreateBolao(o){await sb('revele_boloes',{method:'POST',body:JSON.stringify({slug:o.slug,titulo:o.titulo,data_prevista:o.dataPrevista||null,created_by:o.by,admin_key:o.adminKey})});return {slug:o.slug}}
-async function apiGetBolao(slug){const rows=await sb('revele_boloes?slug=eq.'+encodeURIComponent(slug)+'&select=id,slug,titulo,data_prevista,created_by,resultado,unlocked,created_at');if(!rows.length)return null;const b=rows[0];const palpites=await sb('revele_palpites?bolao_id=eq.'+b.id+'&select=id,bolao_id,nome,sexo,nome_sugerido,data_palpite,peso_kg,created_at&order=created_at.asc');return rowToBolao(b,palpites)}
+async function apiGetBolao(slug){const rows=await sb('revele_boloes_public?slug=eq.'+encodeURIComponent(slug)+'&select=id,slug,titulo,data_prevista,created_by,unlocked,resultado,created_at');if(!rows.length)return null;const b=rows[0];const palpites=await sb('revele_palpites?bolao_id=eq.'+b.id+'&select=id,bolao_id,nome,sexo,nome_sugerido,data_palpite,peso_kg,created_at&order=created_at.asc');return rowToBolao(b,palpites)}
+async function apiAdminGetResultado(slug,key){const r=await fetch(SB_URL+'/functions/v1/revele-admin',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({slug:slug,key:key,action:'get_resultado'})});const j=await r.json().catch(()=>({}));if(!j.ok)throw new Error(j.motivo||'falha');return j.resultado}
 async function apiAddPalpite(bid,x){await sb('revele_palpites',{method:'POST',body:JSON.stringify({bolao_id:bid,nome:x.n||'Anônimo',sexo:x.sexo,nome_sugerido:x.nomeSugerido||null,data_palpite:x.data||null,peso_kg:x.peso||null})})}
 async function apiAdminDel(slug,key,palpiteId){const r=await fetch(SB_URL+'/functions/v1/revele-admin',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({slug:slug,key:key,action:'delete_palpite',palpite_id:palpiteId})});const j=await r.json().catch(()=>({}));if(!j.ok)throw new Error(j.motivo||'falha');}
 async function apiAdminSetResultado(slug,key,resultado){const r=await fetch(SB_URL+'/functions/v1/revele-admin',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({slug:slug,key:key,action:'set_resultado',resultado:resultado})});const j=await r.json().catch(()=>({}));if(!j.ok)throw new Error(j.motivo||'falha');}
@@ -289,6 +295,9 @@ async function renderBolao(slug){
   let b=null;
   try{b=await apiGetBolao(slug)}catch(e){app.innerHTML=errBox('Não consegui carregar agora. Confira a conexão e tente de novo.');return}
   if(!b){app.innerHTML=errBox('Bolão não encontrado. O link pode estar incorreto.');return}
+  if(!ADMINKEY){try{ADMINKEY=localStorage.getItem('revele_key_'+slug)||null}catch(_){}}
+  if(ADMINKEY){try{localStorage.setItem('revele_key_'+slug,ADMINKEY)}catch(_){}
+    try{b.resultado=await apiAdminGetResultado(slug,ADMINKEY)}catch(_){/* chave inválida ou rede falhou: mantém ADMINKEY, só não mostra resultado ainda */}}
   CURRENT=b;paintBolao(b);
   handleReturn(slug);
 }
@@ -351,8 +360,10 @@ async function createBolao(){
   catch(e){if(btn){btn.disabled=false;btn.textContent='Criar bolão 👶';}toast('Não consegui criar agora 😬 tente de novo');return;}
   if(btn){btn.disabled=false;btn.textContent='Criar bolão 👶';}
   track('bolao_created',{slug});
+  try{localStorage.setItem('revele_key_'+slug,adminKey)}catch(_){}
   await go('b='+slug+'&k='+encodeURIComponent(adminKey));
-  document.getElementById('shareUrl').value=buildShareUrl(slug);
+  document.getElementById('shareUrl').value=buildShareUrl(slug,false);
+  document.getElementById('adminUrl').value=buildShareUrl(slug,true);
   openModal('mShare');
 }
 let palpiteDraft={sexo:null};
@@ -412,8 +423,8 @@ async function handleReturn(slug){
 let retroSlides=[],retroIdx=0,retroPreview=false,retroTimer=null;
 function buildRetroSlides(b,preview){
   const s=[{type:'title',titulo:b.titulo}];
-  if(!b.resultado){s.push({type:'sem_resultado'});return s}
   if(preview){s.push({type:'lock'});return s}
+  if(!b.resultado){s.push({type:'sem_resultado'});return s}
   s.push({type:'reveal',resultado:b.resultado});
   const acertaram=b.palpites.filter(p=>p.sexo===b.resultado);
   s.push({type:'ranking',lista:acertaram,total:b.palpites.length});
@@ -450,9 +461,10 @@ function retroChromeHTML(){
   const dots=retroSlides.map((_,i)=>`<span class="rdot ${i===retroIdx?'on':''}"></span>`).join('');
   return `<div class="rchrome"><button class="rclose" onclick="event.stopPropagation();closeRetro()">✕</button></div><div class="rdots">${dots}</div>`;
 }
-function buildShareUrl(id){const o=location.origin,p=location.pathname;return (o&&o!=='null')?(o+p+'#b='+id):('...seudominio.com/#b='+id)}
-function shareBolao(id){document.getElementById('shareUrl').value=buildShareUrl(id);openModal('mShare')}
+function buildShareUrl(id,withKey){const o=location.origin,p=location.pathname;const base=(o&&o!=='null')?(o+p+'#b='+id):('...seudominio.com/#b='+id);return (withKey&&ADMINKEY)?(base+'&k='+encodeURIComponent(ADMINKEY)):base}
+function shareBolao(id){document.getElementById('shareUrl').value=buildShareUrl(id,false);document.getElementById('adminUrl').value=buildShareUrl(id,true);openModal('mShare')}
 function copyShare(){const el=document.getElementById('shareUrl');el.select();try{navigator.clipboard.writeText(el.value)}catch(_){document.execCommand('copy')}toast('Link copiado! 📋')}
+function copyAdmin(){const el=document.getElementById('adminUrl');el.select();try{navigator.clipboard.writeText(el.value)}catch(_){document.execCommand('copy')}toast('Link de organizador copiado! 🔑')}
 function ctaCreate(src){try{track('cta_create_click',{src:src||null})}catch(_){}go('');setTimeout(scrollCreate,150)}
 function waText(){const titulo=(CURRENT&&CURRENT.titulo)?CURRENT.titulo:'esse bebê';const url=(document.getElementById('shareUrl')&&document.getElementById('shareUrl').value)||buildShareUrl((CURRENT&&CURRENT.slug)||'');return 'Oi! Bora palpitar no bolão de chá revelação de '+titulo+'? Menino ou menina? 💙💗 Leva 1 minuto: '+url;}
 function shareWhatsApp(){try{track('share_whatsapp',{bolao:(CURRENT&&CURRENT.slug)||null})}catch(_){}window.open('https://wa.me/?text='+encodeURIComponent(waText()),'_blank');return false;}

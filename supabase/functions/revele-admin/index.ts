@@ -39,6 +39,13 @@ Deno.serve(async (req) => {
       );
       return json({ ok: true });
     }
+    if (action === "get_resultado") {
+      const full = await fetch(
+        `${SB_URL}/rest/v1/revele_boloes?id=eq.${bolaoId}&select=resultado`,
+        { headers: H },
+      ).then((r) => r.json());
+      return json({ ok: true, resultado: (full[0] && full[0].resultado) || null });
+    }
     return json({ ok: false, motivo: "acao_desconhecida" }, 400);
   } catch (e) {
     return json({ ok: false, motivo: "excecao", detalhe: String(e) }, 200);
