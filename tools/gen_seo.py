@@ -278,6 +278,10 @@ HEAD = """<!DOCTYPE html>
 <meta property="og:description" content="{desc}"/>
 <meta property="og:url" content="{canon}"/>
 <meta property="og:site_name" content="Revelê"/>
+<meta property="og:image" content="https://giogas-pm.github.io/revele/og.png"/>
+<meta property="og:image:width" content="1200"/>
+<meta property="og:image:height" content="630"/>
+<meta name="twitter:card" content="summary_large_image"/>
 <meta name="robots" content="index,follow"/>
 <link rel="preconnect" href="https://fonts.googleapis.com"/>
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
