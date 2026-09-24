@@ -14,7 +14,7 @@ def e(s): return html.escape(s, quote=True)
 # FAQ comum a todas (so preco + atrito de conta; curta p/ nao virar boilerplate)
 FAQ_COMUM = [
     ("Quanto custa?",
-     "Criar o bolão e coletar quantos palpites quiser é de graça. Você só paga uma vez (R$29), se quiser, para desbloquear a revelação animada completa, sem marca d'água, e o ranking de quem acertou. Não tem assinatura."),
+     "Criar o bolão e coletar quantos palpites quiser é de graça. Você só paga uma vez (R$19,90), se quiser, para liberar a revelação em tela cheia na festa e o ranking de quem acertou. Não tem assinatura."),
     ("Os convidados precisam instalar app ou criar conta?",
      "Não. Cada pessoa só abre o link no navegador do celular, escolhe menino ou menina e pronto. Sem download, sem cadastro."),
 ]

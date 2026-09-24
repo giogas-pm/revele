@@ -17,13 +17,13 @@ Deno.serve(async (req) => {
     const { slug, key, action, palpite_id, resultado } = await req.json().catch(() => ({} as any));
     if (!slug || !key) return json({ ok: false, motivo: "faltam_dados" }, 400);
     const rows = await fetch(
-      `${SB_URL}/rest/v1/revele_boloes?slug=eq.${encodeURIComponent(slug)}&select=id,admin_key,unlocked`,
+      `${SB_URL}/rest/v1/revele_boloes?slug=eq.${encodeURIComponent(slug)}&select=id,admin_key,unlocked,resultado,revealed_at`,
       { headers: H },
     ).then((r) => r.json());
     if (!rows.length) return json({ ok: false, motivo: "bolao_inexistente" }, 404);
     if (!rows[0].admin_key || rows[0].admin_key !== key) return json({ ok: false, motivo: "nao_autorizado" }, 403);
     const bolaoId = rows[0].id;
-    const jaRevelado = rows[0].unlocked === true;
+    const jaRevelado = !!rows[0].revealed_at; // pagar NÃO revela; só o toque em "Revelar agora"
     if (action === "delete_palpite") {
       if (!palpite_id) return json({ ok: false, motivo: "sem_palpite" }, 400);
       await fetch(
@@ -40,6 +40,16 @@ Deno.serve(async (req) => {
         { method: "PATCH", headers: { ...H, Prefer: "return=minimal" }, body: JSON.stringify({ resultado }) },
       );
       return json({ ok: true });
+    }
+    if (action === "reveal") {
+      if (!rows[0].unlocked) return json({ ok: false, motivo: "nao_pago" }, 402);
+      if (!rows[0].resultado) return json({ ok: false, motivo: "sem_resultado" }, 409);
+      if (!jaRevelado) {
+        await fetch(`${SB_URL}/rest/v1/revele_boloes?id=eq.${bolaoId}`, {
+          method: "PATCH", headers: { ...H, Prefer: "return=minimal" }, body: JSON.stringify({ revealed_at: new Date().toISOString() }),
+        });
+      }
+      return json({ ok: true, resultado: rows[0].resultado });
     }
     if (action === "get_resultado") {
       const full = await fetch(

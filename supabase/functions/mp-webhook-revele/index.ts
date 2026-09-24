@@ -18,7 +18,7 @@ Deno.serve(async (req) => {
       headers: { Authorization: "Bearer " + token },
     });
     const pay = await pr.json();
-    if (pay && pay.status === "approved" && pay.external_reference) {
+    if (pay && pay.status === "approved" && pay.external_reference && Number(pay.transaction_amount) >= 19.9) { // confere o valor pago
       await fetch(`${SB_URL}/rest/v1/revele_boloes?slug=eq.${encodeURIComponent(pay.external_reference)}`, {
         method: "PATCH",
         headers: {

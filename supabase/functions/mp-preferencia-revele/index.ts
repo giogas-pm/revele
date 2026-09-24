@@ -20,7 +20,7 @@ Deno.serve(async (req) => {
     if (!slug) return json({ ok: false, motivo: "sem_slug" });
     const nome = ("Revelê — revelação de " + (titulo || "um bebê especial")).slice(0, 240);
     const pref = {
-      items: [{ title: nome, quantity: 1, unit_price: 29, currency_id: "BRL" }],
+      items: [{ title: nome, quantity: 1, unit_price: 19.9, currency_id: "BRL" }],
       external_reference: String(slug),
       metadata: { slug: String(slug) },
       statement_descriptor: "REVELE",
