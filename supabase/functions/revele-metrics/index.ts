@@ -28,13 +28,14 @@ Deno.serve(async (req) => {
   try {
     const [
       boloes_total, boloes_pagos, palpites_total,
-      ev_visit, ev_seoland,
+      ev_visit, ev_eng, ev_seoland,
       ev_bolao_created, ev_palpite, ev_paywall, ev_checkout,
     ] = await Promise.all([
       countOf("revele_boloes"),
       countOf("revele_boloes?unlocked=eq.true"),
       countOf("revele_palpites"),
       countOf("revele_eventos?evento=eq.visit"),
+      countOf("revele_eventos?evento=eq.engaged"),
       countOf("revele_eventos?evento=eq.seo_land"),
       countOf("revele_eventos?evento=eq.bolao_created"),
       countOf("revele_eventos?evento=eq.palpite_added"),
@@ -50,6 +51,7 @@ Deno.serve(async (req) => {
       palpites_total,
       funil: {
         visit: ev_visit,
+        engaged: ev_eng,
         seo_land: ev_seoland,
         bolao_created: ev_bolao_created,
         palpite_added: ev_palpite,
