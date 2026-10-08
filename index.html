@@ -200,7 +200,7 @@
     <button class="close" onclick="closeModal('mThanks')">&times;</button>
     <div style="font-size:44px;line-height:1;margin:4px 0 8px">🍼</div>
     <h2>Palpite registrado! 🎉</h2>
-    <p class="sub">Você vai saber se acertou na hora da revelação. Quer fazer um bolão desses pro seu próprio chá revelação?</p>
+    <p class="sub">Na festa, a revelação aparece na tela com o ranking de quem acertou 🏆 Quer fazer um bolão desses pro seu próprio chá revelação?</p>
     <button class="btn btn-primary" style="width:100%" onclick="closeModal('mThanks');ctaCreate('pos_palpite')">Criar meu bolão grátis 👶</button>
     <button class="btn btn-ghost" style="width:100%;margin-top:8px" onclick="closeModal('mThanks')">Ver o placar</button>
   </div>
@@ -247,6 +247,9 @@ async function apiAdminSetResultado(slug,key,resultado){const r=await fetch(SB_U
 function uid(){const a='abcdefghijkmnpqrstuvwxyz23456789';let o='';const b=new Uint8Array(10);try{crypto.getRandomValues(b)}catch(_){for(let i=0;i<10;i++)b[i]=Math.random()*256}for(let j=0;j<10;j++)o+=a[b[j]%a.length];return o}
 function genKey(){try{return crypto.randomUUID()}catch(_){return Math.random().toString(36).slice(2)+Math.random().toString(36).slice(2)}}
 function esc(s){return (s||'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]))}
+function diasAte(d){if(!d)return null;try{const t=new Date(d+'T12:00:00'),h=new Date();h.setHours(12,0,0,0);return Math.round((t-h)/864e5)}catch(_){return null}}
+function sendAdminToMe(){const u=buildShareUrl(CURRENT.slug,true);try{track('admin_link_save',{bolao:CURRENT.slug,via:'whatsapp'})}catch(_){}window.open('https://wa.me/?text='+encodeURIComponent('🔑 Meu link de ORGANIZADORA do bolão (não compartilhar): '+u),'_blank')}
+function copyAdminNow(){const u=buildShareUrl(CURRENT.slug,true);try{navigator.clipboard.writeText(u)}catch(_){}try{track('admin_link_save',{bolao:CURRENT.slug,via:'copiar'})}catch(_){}toast('Link de organizadora copiado! Guarde nas suas notas 🔑')}
 function fmtData(d){if(!d)return'';try{const[y,m,dd]=d.split('-');return dd+'/'+m+'/'+y}catch(_){return d}}
 
 /* ---------- router ---------- */
@@ -347,7 +350,9 @@ function paintBolao(b){
       <div class="sb-track"><div class="sb-menino" style="width:${pMenino}%"></div></div>
     </div>
     ${(ADMINKEY&&!b.revealed)?`<div class="adminbar"><a onclick="openModal('mResultado')">🤫 ${b.resultado?'Alterar':'Guardar'} o resultado secreto</a></div>`:''}
-    ${(ADMINKEY&&!b.unlocked&&total>=3)?`<div class="nudge">✨ Já são ${total} palpites — prepare a revelação completa pra festa. <button class="btn btn-primary btn-sm" onclick="openPay()">Desbloquear</button></div>`:''}
+    ${(ADMINKEY&&!b.revealed)?`<div class="nudge">🔑 <b>Salve seu link de organizadora</b> — é só com ele que você revela na festa. <button class="btn btn-ghost btn-sm" onclick="sendAdminToMe()">Mandar pra mim no WhatsApp</button> <button class="btn btn-ghost btn-sm" onclick="copyAdminNow()">Copiar</button></div>`:''}
+    ${(ADMINKEY&&!b.unlocked)?`<div class="nudge">🎉 ${diasAte(b.dataPrevista)!==null?(diasAte(b.dataPrevista)>0?`Faltam <b>${diasAte(b.dataPrevista)} dia(s)</b> pro chá. `:'<b>O chá é hoje!</b> '):''}Na festa, a revelação aparece em <b>tela cheia na TV</b> com o ranking de quem acertou${total?` (já são ${total} palpites)`:''}. <button class="btn btn-ghost btn-sm" onclick="openRetro(true)">Ver como fica</button> <button class="btn btn-primary btn-sm" onclick="openPay()">Liberar — R$19,90</button></div>`:''}
+    ${!ADMINKEY&&!b.revealed?`<p style="text-align:center;color:var(--muted);font-size:13.5px;margin:8px 0 0">${b.dataPrevista?'Dia '+fmtData(b.dataPrevista)+', n':'N'}a festa, a revelação aparece na tela com o ranking de quem acertou 🏆</p>`:''}
     <div class="grid">${cards}</div>
     ${b.unlocked?'':'<div class="watermark">Feito com <b>Revelê</b> — crie o seu grátis</div>'}
     <footer class="sitefoot">Revelê — <a href="/revele/">crie seu bolão de chá revelação grátis</a></footer>
@@ -430,6 +435,8 @@ async function revelarAgora(){
 }
 function openPay(){track('paywall_view');openModal('mPay')}
 async function fakePay(){
+  const bt=document.querySelector('#mPay .btn-primary');if(bt){if(bt.disabled)return;bt.disabled=true;bt.textContent='Abrindo pagamento...'}
+  setTimeout(()=>{if(bt){bt.disabled=false;bt.textContent='Liberar — R$19,90'}},8000);
   try{
     const r=await fetch(SB_URL+'/functions/v1/mp-preferencia-revele',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({slug:CURRENT.slug,titulo:CURRENT.titulo})});
     const j=await r.json().catch(()=>({}));
@@ -454,7 +461,7 @@ async function handleReturn(slug){
 let retroSlides=[],retroIdx=0,retroPreview=false,retroTimer=null;
 function buildRetroSlides(b,preview){
   const s=[{type:'title',titulo:b.titulo}];
-  if(preview){s.push({type:'lock'});return s}
+  if(preview){const ex=Math.random()<.5?'menino':'menina';s.push({type:'reveal',resultado:ex,exemplo:true});s.push({type:'ranking',lista:[{n:'Tia Ana',nomeSugerido:'Helena'},{n:'Vovó Lu'},{n:'Pedro'}],total:Math.max(b.palpites.length,8),exemplo:true});s.push({type:'lock'});return s}
   if(!b.resultado){s.push({type:'sem_resultado'});return s}
   s.push({type:'reveal',resultado:b.resultado});
   const acertaram=b.palpites.filter(p=>p.sexo===b.resultado);
@@ -483,9 +490,9 @@ function retroSlideHTML(s){
   if(s.type==='title')return `<div class="slide"><div class="rtag">bolão de chá revelação</div><h1 class="rtitle">${esc(s.titulo)}</h1><p class="rname">menino ou menina?</p></div>`;
   if(s.type==='sem_resultado')return `<div class="slide"><span style="font-size:44px">🤫</span><h1 class="rtitle" style="font-size:clamp(24px,5vw,36px)">O organizador ainda não guardou o resultado</h1><p class="rname">Volte quando a revelação for anunciada.</p><button class="btn btn-ghost rbtn" onclick="event.stopPropagation();closeRetro()">Fechar</button></div>`;
   if(s.type==='lock')return `<div class="slide"><span style="font-size:44px">✨</span><h1 class="rtitle" style="font-size:clamp(26px,5vw,40px)">Isso é só a prévia</h1><p class="rname" style="margin-bottom:6px">Libere a revelação em tela cheia e o ranking de quem acertou.</p><button class="btn btn-primary rbtn" onclick="event.stopPropagation();closeRetro();openPay()">Liberar — R$19,90</button></div>`;
-  if(s.type==='reveal'){const m=s.resultado==='menino';return `<div class="slide"><div class="rtag">é hora da revelação</div><h1 class="rtitle" style="color:${m?'#8fb6f2':'#f2a2c0'}">${m?'💙 É MENINO!':'💗 É MENINA!'}</h1></div>`}
+  if(s.type==='reveal'){const m=s.resultado==='menino';return `<div class="slide"><div class="rtag">${s.exemplo?'EXEMPLO — na festa aparece o resultado real':'é hora da revelação'}</div><h1 class="rtitle" style="color:${m?'#8fb6f2':'#f2a2c0'}">${m?'💙 É MENINO!':'💗 É MENINA!'}</h1></div>`}
   if(s.type==='ranking'){const li=s.lista.map(p=>`<li>${esc(p.n||'Anônimo')} ${p.nomeSugerido?'— sugeriu "'+esc(p.nomeSugerido)+'"':''}</li>`).join('')||'<li>Ninguém acertou dessa vez 😅</li>';
-    return `<div class="slide"><h1 class="rtitle" style="font-size:clamp(24px,4.4vw,34px)">Quem acertou 🏆</h1><p class="rname">${s.lista.length} de ${s.total} palpites</p><ul class="rank">${li}</ul></div>`}
+    return `<div class="slide"><h1 class="rtitle" style="font-size:clamp(24px,4.4vw,34px)">Quem acertou 🏆</h1>${s.exemplo?'<p class="rname">(exemplo)</p>':''}<p class="rname">${s.lista.length} de ${s.total} palpites</p><ul class="rank">${li}</ul></div>`}
   return `<div class="slide"><span style="font-size:44px">💛</span><h1 class="rtitle" style="font-size:clamp(26px,5vw,40px)">Com muito carinho</h1><p class="rname">Feito no Revelê</p><button class="btn btn-ghost rbtn" onclick="event.stopPropagation();closeRetro()">Fechar</button></div>`;
 }
 function retroChromeHTML(){
@@ -497,7 +504,7 @@ function shareBolao(id){document.getElementById('shareUrl').value=buildShareUrl(
 function copyShare(){const el=document.getElementById('shareUrl');el.select();try{navigator.clipboard.writeText(el.value)}catch(_){document.execCommand('copy')}toast('Link copiado! 📋')}
 function copyAdmin(){const el=document.getElementById('adminUrl');el.select();try{navigator.clipboard.writeText(el.value)}catch(_){document.execCommand('copy')}toast('Link de organizador copiado! 🔑')}
 function ctaCreate(src){try{track('cta_create_click',{src:src||null})}catch(_){}go('');setTimeout(scrollCreate,150)}
-function waText(){const titulo=(CURRENT&&CURRENT.titulo)?CURRENT.titulo:'esse bebê';const url=(document.getElementById('shareUrl')&&document.getElementById('shareUrl').value)||buildShareUrl((CURRENT&&CURRENT.slug)||'');return 'Oi! Bora palpitar no bolão de chá revelação de '+titulo+'? Menino ou menina? 💙💗 Leva 1 minuto: '+url;}
+function waText(){const titulo=(CURRENT&&CURRENT.titulo)?CURRENT.titulo:'esse bebê';const url=(document.getElementById('shareUrl')&&document.getElementById('shareUrl').value)||buildShareUrl((CURRENT&&CURRENT.slug)||'');return 'Oi! Bora palpitar no bolão de chá revelação de '+titulo+'? Menino ou menina? 💙💗 Leva 1 minuto'+((CURRENT&&CURRENT.dataPrevista)?'. A revelação oficial é dia '+fmtData(CURRENT.dataPrevista)+', com ranking de quem acertou 🏆':'')+': '+url;}
 function shareWhatsApp(){try{track('share_whatsapp',{bolao:(CURRENT&&CURRENT.slug)||null})}catch(_){}window.open('https://wa.me/?text='+encodeURIComponent(waText()),'_blank');return false;}
 
 /* ---------- helpers ---------- */
